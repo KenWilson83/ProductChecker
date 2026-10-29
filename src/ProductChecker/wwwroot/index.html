@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProductChecker</title>
+  <style>
+    * { box-sizing: border-box; } body { margin: 0; background: #f4f6fa; color: #17243a; font-family: system-ui, sans-serif; }
+    main { max-width: 720px; margin: 10vh auto; padding: 32px; } .label { color: #3859af; font-weight: 700; letter-spacing: .1em; font-size: .8rem; }
+    h1 { font-size: clamp(2rem, 6vw, 3.4rem); line-height: 1.1; margin: 20px 0; } p { line-height: 1.6; color: #526078; }
+    form, .result { padding: 24px; background: white; border: 1px solid #dbe1eb; border-radius: 16px; margin-top: 28px; }
+    label { display: block; font-weight: 650; margin-bottom: 10px; } textarea { width: 100%; padding: 14px; resize: vertical; border: 1px solid #8c9ab0; border-radius: 8px; }
+    button { margin-top: 16px; padding: 14px 22px; font: inherit; font-weight: 650; color: white; background: #3157b7; border: 0; border-radius: 8px; cursor: pointer; }
+    button:disabled { opacity: .65; cursor: wait; } :focus-visible { outline: 3px solid #c27c05; outline-offset: 3px; }
+    .result[data-status="available"] { border-left: 5px solid #21834a; } .result[data-status="unavailable"] { border-left: 5px solid #b43c42; }
+    .result[data-status="unknown"] { border-left: 5px solid #b67c12; } h2 { margin-top: 0; } small { color: #526078; } a { color: #3157b7; }
+    .product-url { overflow-wrap: anywhere; } #form-error { color: #a42c35; } textarea { font: inherit; }
+  </style>
+</head>
+<body><main>
+  <div class="label">PRODUCTCHECKER</div>
+  <h1>Is it available?</h1>
+  <p>Paste product page links to check whether each store reports them available for purchase.</p>
+  <form id="check-form">
+    <label for="urls">Product page URLs</label>
+    <textarea id="urls" name="urls" rows="6" placeholder="https://store.example/product-one&#10;https://store.example/product-two" required maxlength="50000" spellcheck="false" aria-describedby="hint form-error"></textarea>
+    <p id="hint"><small>Enter one HTTPS product URL per line, up to 10 different URLs. Blank lines and duplicate URLs are ignored. Checks are limited to 10 per minute.</small></p>
+    <p id="form-error" role="alert"></p>
+    <button id="submit" type="submit">Check availability</button>
+  </form>
+  <p id="progress" role="status" aria-live="polite"></p>
+  <section id="results" aria-label="Product availability results"></section>
+  <p><small>Availability comes from the store’s published product data and can change. Some stores block checks or load stock information with JavaScript. Always confirm the variant, price, and shipping at checkout.</small></p>
+</main>
+<script type="module" src="/app.mjs"></script></body></html>
