@@ -22,7 +22,7 @@ app.MapPost("/api/check", async (CheckRequest request, ProductPageClient client,
     try
     {
         var html = await client.FetchAsync(uri, cancellationToken);
-        return Results.Ok(AvailabilityReader.Read(html));
+        return Results.Ok(AvailabilityReader.Read(html, uri));
     }
     catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidOperationException or System.Net.Sockets.SocketException or System.Text.RegularExpressions.RegexMatchTimeoutException)
     {

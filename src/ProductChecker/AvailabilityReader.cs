@@ -8,7 +8,7 @@ public record AvailabilityResult(string Status, string Message, string[] Evidenc
 public static class AvailabilityReader
 {
     // Read explicit Schema.org product offers; ordinary page text is not evidence of stock.
-    public static AvailabilityResult Read(string html)
+    public static AvailabilityResult Read(string html, Uri? source = null)
     {
         var evidence = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (Match script in Regex.Matches(html, @"<script\b(?<attrs>[^>]*)>(?<body>.*?)</script\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline, TimeSpan.FromSeconds(1)))
@@ -21,6 +21,7 @@ public static class AvailabilityReader
             }
             catch (JsonException) { /* A malformed block must not hide other valid blocks. */ }
         }
+        if (evidence.Count == 0) ReadWalmartState(html, source, evidence);
         var values = evidence.Order().ToArray();
         var available = values.Any(v => v is "InStock" or "LimitedAvailability" or "OnlineOnly");
         var unavailable = values.Any(v => v is "OutOfStock" or "SoldOut" or "Discontinued" or "InStoreOnly");
@@ -31,6 +32,37 @@ public static class AvailabilityReader
         return new("unknown", values.Length == 0
             ? "No supported product availability data was found. Check the store page directly."
             : "The page has mixed, preorder, backorder, or unrecognized availability. Check the specific offer or variant at the store.", values);
+    }
+
+    private static void ReadWalmartState(string html, Uri? source, HashSet<string> evidence)
+    {
+        if (source is null || source.Scheme != "https" || source.Host is not ("www.walmart.com" or "walmart.com")) return;
+        var id = Regex.Match(source.AbsolutePath, @"^/ip/(?:[^/]+/)?(?<id>\d+)/?$", RegexOptions.None, TimeSpan.FromSeconds(1));
+        if (!id.Success) return;
+        foreach (Match script in Regex.Matches(html, @"<script\b(?<attrs>[^>]*)>(?<body>.*?)</script\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline, TimeSpan.FromSeconds(1)))
+        {
+            if (!Regex.IsMatch(script.Groups["attrs"].Value, "\\bid\\s*=\\s*(['\"])__NEXT_DATA__\\1", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))) continue;
+            try
+            {
+                using var document = JsonDocument.Parse(script.Groups["body"].Value, new JsonDocumentOptions { MaxDepth = 128 });
+                var product = document.RootElement;
+                var found = true;
+                foreach (var key in new[] { "props", "pageProps", "initialData", "data", "product" })
+                {
+                    if (product.ValueKind != JsonValueKind.Object || !product.TryGetProperty(key, out product)) { found = false; break; }
+                }
+                if (!found || product.ValueKind != JsonValueKind.Object) continue;
+                string? Get(string name) => product.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+                if (Get("usItemId") != id.Groups["id"].Value) continue;
+                if (Get("availabilityStatus") == "OUT_OF_STOCK") evidence.Add("OutOfStock");
+                else if (Get("availabilityStatus") == "IN_STOCK" && Get("availabilityType") == "CURRENT"
+                    && Get("offerType") == "ONLINE_ONLY"
+                    && product.TryGetProperty("shippingOption", out var shipping) && shipping.ValueKind == JsonValueKind.Object
+                    && shipping.TryGetProperty("availabilityStatus", out var status) && status.ValueKind == JsonValueKind.String
+                    && status.GetString() == "AVAILABLE") evidence.Add("InStock");
+            }
+            catch (JsonException) { /* Incomplete or unsupported state remains unknown. */ }
+        }
     }
 
     private static void Visit(JsonElement node, HashSet<string> evidence)

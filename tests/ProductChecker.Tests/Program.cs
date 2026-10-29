@@ -27,4 +27,23 @@ Check("public IPv6", ProductPageClient.IsPublicAddress(IPAddress.Parse("2606:470
 foreach (var url in new[] { "http://example.com", "file:///etc/passwd", "https://example.com:8443", "https://user:pass@example.com", "https://127.0.0.1" })
     Check("reject URL " + url, !ProductPageClient.IsAllowedUrl(new Uri(url)));
 Check("HTTPS URL", ProductPageClient.IsAllowedUrl(new Uri("https://example.com/product")));
+var walmart = new Uri("https://www.walmart.com/ip/console/21002656445");
+string WalmartState(string status = "IN_STOCK", string id = "21002656445", string shipping = "AVAILABLE", string availabilityType = "CURRENT")
+{
+    var product = new { usItemId = id, availabilityStatus = status, availabilityType, offerType = "ONLINE_ONLY", shippingOption = new { availabilityStatus = shipping } };
+    var state = new { props = new { pageProps = new { initialData = new { data = new { product } } } } };
+    return "<script id='__NEXT_DATA__' type='application/json'>" + System.Text.Json.JsonSerializer.Serialize(state) + "</script>";
+}
+Check("Walmart state without JSON-LD", AvailabilityReader.Read(WalmartState(), walmart).Status == "available");
+Check("Walmart out of stock", AvailabilityReader.Read(WalmartState("OUT_OF_STOCK"), walmart).Status == "unavailable");
+Check("Walmart mismatched product", AvailabilityReader.Read(WalmartState(id: "999"), walmart).Status == "unknown");
+Check("Walmart shipping unavailable", AvailabilityReader.Read(WalmartState(shipping: "NOT_AVAILABLE"), walmart).Status == "unknown");
+Check("Walmart preorder", AvailabilityReader.Read(WalmartState(availabilityType: "PREORDER"), walmart).Status == "unknown");
+Check("Walmart unknown status", AvailabilityReader.Read(WalmartState(status: "UNKNOWN"), walmart).Status == "unknown");
+Check("Walmart requires trusted host", AvailabilityReader.Read(WalmartState(), new Uri("https://example.com/ip/console/21002656445")).Status == "unknown");
+Check("Walmart requires product URL", AvailabilityReader.Read(WalmartState(), new Uri("https://www.walmart.com/search?q=console")).Status == "unknown");
+Check("Walmart malformed state", AvailabilityReader.Read("<script id='__NEXT_DATA__'>{bad}</script>", walmart).Status == "unknown");
+Check("Walmart non-object state", AvailabilityReader.Read("<script id='__NEXT_DATA__'>{\"props\":null}</script>", walmart).Status == "unknown");
+Check("Walmart keeps JSON-LD result", AvailabilityReader.Read(Page(Offer("OutOfStock")) + WalmartState(), walmart).Status == "unavailable");
+Check("seller options text alone is insufficient", AvailabilityReader.Read("<p>See more seller options</p>", walmart).Status == "unknown");
 Console.WriteLine($"{passed} tests passed.");

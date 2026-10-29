@@ -19,7 +19,7 @@ Run the browser workflow tests with Node.js 20+ using `node --test tests/web/che
 
 ## Scope
 
-- Reads explicit Schema.org Product offers in JSON-LD embedded in HTML.
+- Reads explicit Schema.org Product offers in JSON-LD embedded in HTML. When Walmart omits that data, it also checks the embedded primary product state, matching the exact item ID. The fallback requires explicit stock and shipping availability; seller-option buttons alone are not evidence of stock.
 - Reports available, unavailable, or unknown. Mixed variants, preorder/backorder, missing data, and fetch failures are unknown. Availability is an observation, not a guarantee of checkout success.
 - Does not search by product name, execute JavaScript, bypass store access restrictions, sign in, or make purchases. Store-specific API integrations can be added later.
 - No database, API keys, or external NuGet packages are required.
